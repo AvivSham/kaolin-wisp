@@ -412,7 +412,7 @@ def load_neural_pipeline(args, dataset, device) -> Pipeline:
     return pipeline
 
 
-def load_trainer(pipeline, train_dataset, validation_dataset, device, scene_state, args, args_dict) -> BaseTrainer:
+def load_trainer(trainer_cls, pipeline, train_dataset, validation_dataset, device, scene_state, args, args_dict) -> BaseTrainer:
     """ Loads the NeRF trainer.
     The trainer is responsible for managing the optimization life-cycles and can be operated in 2 modes:
     - Headless, which will run the train() function until all training steps are exhausted.
@@ -426,26 +426,26 @@ def load_trainer(pipeline, train_dataset, validation_dataset, device, scene_stat
     optimizer_cls = config_parser.get_module(name=args.optimizer_type)
     optimizer_params = config_parser.get_args_for_function(args, optimizer_cls)
 
-    trainer = MultiviewTrainer(pipeline=pipeline,
-                               train_dataset=train_dataset,
-                               validation_dataset=validation_dataset,
-                               num_epochs=args.epochs,
-                               batch_size=args.batch_size,
-                               optim_cls=optimizer_cls,
-                               lr=args.lr,
-                               weight_decay=args.weight_decay,
-                               grid_lr_weight=args.grid_lr_weight,
-                               optim_params=optimizer_params,
-                               log_dir=args.log_dir,
-                               device=device,
-                               exp_name=args.exp_name,
-                               info=args_to_log_format(args_dict),
-                               extra_args=vars(args),
-                               render_tb_every=args.render_tb_every,
-                               save_every=args.save_every,
-                               scene_state=scene_state,
-                               trainer_mode='validate' if args.valid_only else 'train',
-                               using_wandb=args.wandb_project is not None)
+    trainer = trainer_cls(pipeline=pipeline,
+                          train_dataset=train_dataset,
+                          validation_dataset=validation_dataset,
+                          num_epochs=args.epochs,
+                          batch_size=args.batch_size,
+                          optim_cls=optimizer_cls,
+                          lr=args.lr,
+                          weight_decay=args.weight_decay,
+                          grid_lr_weight=args.grid_lr_weight,
+                          optim_params=optimizer_params,
+                          log_dir=args.log_dir,
+                          device=device,
+                          exp_name=args.exp_name,
+                          info=args_to_log_format(args_dict),
+                          extra_args=vars(args),
+                          render_tb_every=args.render_tb_every,
+                          save_every=args.save_every,
+                          scene_state=scene_state,
+                          trainer_mode='validate' if args.valid_only else 'train',
+                          using_wandb=args.wandb_project is not None)
     return trainer
 
 
