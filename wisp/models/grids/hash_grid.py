@@ -267,3 +267,32 @@ class HashGrid(BLASGrid):
             "HashTable Size": f"2^{self.codebook_bitwidth}"
         }
         return {**parent_properties, **properties}
+
+    def bake(self):
+        from .octree_grid import OctreeGrid
+
+        octree_grid = OctreeGrid(
+            blas=self.blas,
+            feature_dim=self.feature_dim*self.num_lods,
+            num_lods=1,
+            interpolation_type='linear',
+            multiscale_type='cat'
+        ).to(self.codebook.device)
+
+        # Create a meshgrid of coords
+        points_dual = octree_grid.points_dual
+        pyramid_dual = octree_grid.pyramid_dual
+        level = octree_grid.max_lod
+        dense_points = points_dual[pyramid_dual[1, level]:pyramid_dual[1, level + 1]]
+
+        # Convert from integer coords of cell numbers to [-1, 1] normalized coords
+        res = 2.0 ** octree_grid.blas.max_level
+        coords = dense_points / res
+        coords = coords * 2.0 - 1.0
+
+        lod_idx = len(self.active_lods) - 1
+        batch, _ = coords.shape
+        feats = self.interpolate(coords, lod_idx)
+        octree_grid.features[0].data[:-1] = feats
+
+        return octree_grid
