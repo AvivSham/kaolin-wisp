@@ -1,36 +1,27 @@
-# Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
-#
-# NVIDIA CORPORATION & AFFILIATES and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION & AFFILIATES is strictly prohibited.
 import copy
-import os
-import logging
 import torch
-from typing import Optional
-from wisp.app_utils import default_log_setup
-from wisp.config import parse_config, configure, autoconfig, instantiate, print_config
 from wisp.framework import WispState
-from wisp.accelstructs import OctreeAS, AxisAlignedBBoxAS
-from wisp.models.grids import OctreeGrid, CodebookOctreeGrid, TriplanarGrid, HashGrid
-from wisp.models.nefs import NeuralRadianceField
-from wisp.models.pipeline import Pipeline
-from wisp.tracers import PackedRFTracer
-from wisp.datasets import NeRFSyntheticDataset, RTMVDataset, SampleRays
-from wisp.trainers import ConfigMultiviewTrainer
-from wisp.trainers.tracker import Tracker, ConfigTracker
-from wisp.renderer.web.jupyter_utils import WISP_ROOT_DIR
 from wisp.renderer.core.api import add_to_scene_graph
 from wisp.renderer.app.wisp_app import WispApp
 
 
+# Example for how you bake:
+# 1. Load your pretrained hashgrid, see NeRF example on https://kaolin-wisp.readthedocs.io/en/latest/pages/app_nerf.html
 hashgrid_saved_model_path = '<CHANGE ME>'
 pipeline = torch.load(hashgrid_saved_model_path)   # Load a full pretrained pipeline: model + weights
+# 2. Let's duplicate the whole NeRF pipeline, to compare before / after bake:
 octree_pipeline = copy.deepcopy(pipeline)
+# 3. Call bake to get an Octree:
 octree_grid = pipeline.nef.grid.bake()
+# 4. The same components of the pipeline remain (NeRF paramters, tracer, etc), only the grid needs to change:
 octree_pipeline.nef.grid = octree_grid
+
+# ---- ^^^ It's ready to use ^^^ ----
+
+# ---- vvv Below is some code that shows a side by side comparison of the hash / baked octree ---
+# Note: Even without a display, you can view both models in Jupyter:
+# https://kaolin-wisp.readthedocs.io/en/latest/pages/example_jupyter.html
+
 
 # Joint trainer / app state - scene_state contains various global definitions
 # If you're using the interactive renderer, this is how you compare both models:
@@ -38,7 +29,32 @@ scene_state: WispState = WispState()
 add_to_scene_graph(state=scene_state, name='original hash', obj=pipeline, batch_size=2**14)
 add_to_scene_graph(state=scene_state, name='baked octree', obj=octree_pipeline, batch_size=2**14)
 
-# Uncomment below after the new config system is pushed to github
+# !!! If you're using Jupyter, you don't create the app like the lines below. !!!
+# Instead have a look at the Jupyter example in the notebook:
+scene_state.renderer.device = torch.device('cuda:0')  # Use same device for trainer, models and app renderer
+app = WispApp(wisp_state=scene_state, window_name='bake example')
+app.run()  # Run in interactive mode
+
+
+# Finally, this is how I usually tweak my main when I use the full interactive app.
+# If you're not using it, you can ditch these lines
+# What's interesting here is the new config system which makes the main way shorter:
+# https://kaolin-wisp.readthedocs.io/en/latest/pages/config_system.html
+
+# import os
+# import logging
+# from typing import Optional
+# from wisp.app_utils import default_log_setup
+# from wisp.config import parse_config, configure, autoconfig, instantiate, print_config
+# from wisp.accelstructs import OctreeAS, AxisAlignedBBoxAS
+# from wisp.models.grids import OctreeGrid, CodebookOctreeGrid, TriplanarGrid, HashGrid
+# from wisp.models.nefs import NeuralRadianceField
+# from wisp.models.pipeline import Pipeline
+# from wisp.tracers import PackedRFTracer
+# from wisp.datasets import NeRFSyntheticDataset, RTMVDataset, SampleRays
+# from wisp.trainers import ConfigMultiviewTrainer
+# from wisp.trainers.tracker import Tracker, ConfigTracker
+# from wisp.renderer.web.jupyter_utils import WISP_ROOT_DIR
 
 # @configure
 # class NeRFAppConfig:
